@@ -16,7 +16,7 @@ META_FILE = os.path.join(DATA_DIR, "file_meta.json")
 os.makedirs(KEY_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# ---------- STEP 1: RSA Key Generation ----------
+# RSA Key Generation
 def generate_rsa_keys(user):
     key = RSA.generate(2048)
     private_key = key.export_key()
@@ -27,8 +27,8 @@ def generate_rsa_keys(user):
     with open(os.path.join(KEY_DIR, f"{user}_public.pem"), 'wb') as f:
         f.write(public_key)
 
-# ---------- STEP 2: Encrypt File ----------
-def encrypt_file(input_file, sender, receiver, password, expire_days=10):
+# File Encrpyption
+def encrypt_file(input_file, sender, receiver, password, expire_seconds=10):
     # Load receiver's public key
     with open(os.path.join(KEY_DIR, f"{receiver}_public.pem"), 'rb') as f:
         receiver_key = RSA.import_key(f.read())
@@ -56,7 +56,7 @@ def encrypt_file(input_file, sender, receiver, password, expire_days=10):
         "encrypted_key": base64.b64encode(encrypted_aes_key).decode(),
         "password": password,
         "created_at": time.time(),
-        "expire_days": expire_days,
+        "expire_seconds": expire_seconds,
         "failed_attempts": 0
     }
     with open(META_FILE, 'w') as f:
@@ -64,13 +64,13 @@ def encrypt_file(input_file, sender, receiver, password, expire_days=10):
 
     print("File encrypted and saved.")
 
-# ---------- STEP 3: Decrypt File ----------
+# File Decryption
 def decrypt_file(receiver, input_password):
     with open(META_FILE, 'r') as f:
         meta = json.load(f)
 
     # Check if file expired
-    expire_time = meta["created_at"] + meta["expire_days"] * 86400
+    expire_time = meta["created_at"] + meta["expire_seconds"]
     if time.time() > expire_time:
         print("File expired. Cannot decrypt.")
         return
@@ -122,12 +122,13 @@ if __name__ == '__main__':
     parser.add_argument('--decrypt', action='store_true')
     parser.add_argument('--user', type=str, default='userB')
     parser.add_argument('--password', type=str, default='secret')
+    parser.add_argument('--expire', type=int, default=10)
     args = parser.parse_args()
 
     if args.genkeys:
         generate_rsa_keys("userA")
         generate_rsa_keys("userB")
     elif args.encrypt:
-        encrypt_file(args.encrypt, "userA", args.user, args.password)
+        encrypt_file(args.encrypt, "userA", args.user, args.password, args.expire)
     elif args.decrypt:
         decrypt_file(args.user, args.password)
