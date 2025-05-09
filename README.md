@@ -10,9 +10,9 @@ pip install pycryptodome
 python secure_file_share.py --genkeys
 ```
 
-3. Encrypt a file
+3. Encrypt a file (That will expire in 60 seconds)
 ```bash
-python secure_file_share.py --encrypt sample.txt --password mypass123
+python secure_file_share.py --encrypt sample.txt --password mypass123 --expire 60
 ```
 
 4. Decrypt a file
