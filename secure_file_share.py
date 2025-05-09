@@ -59,15 +59,44 @@ def encrypt_file(input_file, sender, receiver, password, expire_seconds=10):
         "expire_seconds": expire_seconds,
         "failed_attempts": 0
     }
-    with open(META_FILE, 'w') as f:
-        json.dump(meta, f)
 
-    print("File encrypted and saved.")
+    # Encrypt metadata
+    aes_key_meta = get_random_bytes(32)  # AES key for metadata encryption
+    cipher_meta = AES.new(aes_key_meta, AES.MODE_EAX)
+    meta_bytes = json.dumps(meta).encode()
+    meta_ciphertext, meta_tag = cipher_meta.encrypt_and_digest(meta_bytes)
+
+    # Save encrypted metadata
+    with open(META_FILE, 'wb') as f:
+        f.write(cipher_meta.nonce + meta_tag + meta_ciphertext)
+
+    # Save the AES key for metadata encryption (secure this in production)
+    with open(os.path.join(KEY_DIR, "meta_aes_key.bin"), 'wb') as f:
+        f.write(aes_key_meta)
+
+    print("File encrypted and metadata saved.")
 
 # File Decryption
+# ...existing code...
+
 def decrypt_file(receiver, input_password):
-    with open(META_FILE, 'r') as f:
-        meta = json.load(f)
+    # Load the AES key for metadata decryption
+    with open(os.path.join(KEY_DIR, "meta_aes_key.bin"), 'rb') as f:
+        aes_key_meta = f.read()
+
+    # Load and decrypt metadata
+    with open(META_FILE, 'rb') as f:
+        nonce = f.read(16)
+        tag = f.read(16)
+        ciphertext = f.read()
+
+    cipher_meta = AES.new(aes_key_meta, AES.MODE_EAX, nonce)
+    try:
+        meta_bytes = cipher_meta.decrypt_and_verify(ciphertext, tag)
+        meta = json.loads(meta_bytes.decode())
+    except ValueError:
+        print("Metadata decryption failed. File may be tampered with.")
+        return
 
     # Check if file expired
     expire_time = meta["created_at"] + meta["expire_seconds"]
@@ -83,8 +112,14 @@ def decrypt_file(receiver, input_password):
     # Password check
     if input_password != meta["password"]:
         meta["failed_attempts"] += 1
-        with open(META_FILE, 'w') as f:
-            json.dump(meta, f)
+
+        # Re-encrypt and save updated metadata
+        cipher_meta = AES.new(aes_key_meta, AES.MODE_EAX)
+        meta_bytes = json.dumps(meta).encode()
+        meta_ciphertext, meta_tag = cipher_meta.encrypt_and_digest(meta_bytes)
+        with open(META_FILE, 'wb') as f:
+            f.write(cipher_meta.nonce + meta_tag + meta_ciphertext)
+
         print("Incorrect password.")
         return
 
