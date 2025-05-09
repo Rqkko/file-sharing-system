@@ -101,7 +101,13 @@ def decrypt_file(receiver, input_password):
     # Check if file expired
     expire_time = meta["created_at"] + meta["expire_seconds"]
     if time.time() > expire_time:
-        print("File expired. Cannot decrypt.")
+        print("File expired. Deleting encrypted file and metadata.")
+        # Delete the encrypted file and metadata
+        encrypted_file = os.path.join(DATA_DIR, "encrypted_file.bin")
+        if os.path.exists(encrypted_file):
+            os.remove(encrypted_file)
+        if os.path.exists(META_FILE):
+            os.remove(META_FILE)
         return
 
     # Check password attempts
