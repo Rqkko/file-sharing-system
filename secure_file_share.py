@@ -1,5 +1,3 @@
-# secure_file_share.py
-
 import os
 import json
 import time
